@@ -1,0 +1,10 @@
+services:
+    # ... ваші інші налаштування
+
+    Redis:
+        class: Redis
+        calls:
+            - method: connect
+              arguments:
+                  - 'redis'
+                  - '6379' # Додали лапки, щоб тип збігався з 'redis'

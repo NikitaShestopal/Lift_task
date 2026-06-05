@@ -4,9 +4,12 @@ namespace App\Controller;
 
 use App\Document\User;
 use App\DTO\UserDTO;
+use App\Services\IdempotencyBlocker;
+use App\Services\UserRequestValidator;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Doctrine\ODM\MongoDB\DocumentManager;
@@ -14,18 +17,33 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class UserController extends AbstractController
 {
+
+    public function __construct(
+        private IdempotencyBlocker $idempotencyBlocker,
+        private UserRequestValidator $requestValidator
+    ) {}
+
     #[Route('/api/user', name: 'add_user', methods: ['POST'])]
     public function createUser(Request $request, MessageBusInterface $bus, ValidatorInterface $validator): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
+        $validationErrors = $this->requestValidator->validate($data);
+        if (!empty($validationErrors)) {
+            return new JsonResponse(['errors' => $validationErrors], Response::HTTP_BAD_REQUEST);
+        }
+
+        $mainPhone = $data['phoneNumbers'][0];
+        if (!$this->idempotencyBlocker->tryLock($mainPhone)) {
+            return new JsonResponse(['error' => 'Запит вже обробляється.'], Response::HTTP_TOO_MANY_REQUESTS);
+        }
+
+
+        $phoneNumbers = array_unique($data['phoneNumbers'] ?? []);
         $ipAddress = $request->getClientIp();
         if (!$ipAddress || $ipAddress === '127.0.0.1' || str_starts_with($ipAddress, '172.')) {
             $ipAddress = $data['ipAddress'] ?? '178.92.0.1';
         }
-
-        $phoneNumbers = array_unique($data['phoneNumbers'] ?? []);
-
         $message = new UserDTO(
             $data['firstName'] ?? '',
             $data['lastName'] ?? '',
