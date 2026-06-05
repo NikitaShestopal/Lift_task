@@ -8,10 +8,12 @@
         "ext-ctype": "*",
         "ext-http": "*",
         "ext-iconv": "*",
+        "ext-redis": "*",
         "doctrine/doctrine-bundle": "^3.2.2",
         "doctrine/doctrine-migrations-bundle": "^4.0",
         "doctrine/mongodb-odm-bundle": "*",
         "doctrine/orm": "^3.6.7",
+        "nelmio/api-doc-bundle": "^5.10",
         "phpdocumentor/reflection-docblock": "^6.0.3",
         "phpstan/phpdoc-parser": "^2.3.2",
         "symfony/asset": "8.1.*",
@@ -46,8 +48,7 @@
         "symfony/web-link": "8.1.*",
         "symfony/yaml": "8.1.*",
         "twig/extra-bundle": "^2.12|^3.24",
-        "twig/twig": "^2.12|^3.27.1",
-        "ext-redis": "*"
+        "twig/twig": "^2.12|^3.27.1"
     },
     "config": {
         "allow-plugins": {

@@ -14,16 +14,71 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Doctrine\ODM\MongoDB\DocumentManager;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use OpenApi\Attributes as OA;
 
+#[OA\Tag(name: 'Користувачі (Users)')]
 class UserController extends AbstractController
 {
-
     public function __construct(
         private IdempotencyBlocker $idempotencyBlocker,
         private UserRequestValidator $requestValidator
     ) {}
 
     #[Route('/api/user', name: 'add_user', methods: ['POST'])]
+    #[OA\Post(
+        path: '/api/user',
+        summary: 'Створити нового користувача',
+        description: 'Валідує дані, перевіряє унікальність/ідемпотентність за першим номером телефону та передає задачу в чергу повідомлень.'
+    )]
+    #[OA\RequestBody(
+        required: true,
+        description: 'JSON-payload для створення користувача',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'firstName', type: 'string', example: 'Олександр'),
+                new OA\Property(property: 'lastName', type: 'string', example: 'Шестопал'),
+                new OA\Property(
+                    property: 'phoneNumbers',
+                    type: 'array',
+                    items: new OA\Items(type: 'string'),
+                    example: ['+380501234567', '+380671234567']
+                ),
+                new OA\Property(property: 'ipAddress', type: 'string', example: '178.92.0.1', nullable: true)
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 202,
+        description: 'Запит прийнято в обробку (відправлено в Messenger Bus)',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'status', type: 'string', example: 'Accepted')
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Помилка валідації структури або DTO',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(
+                    property: 'errors',
+                    type: 'object',
+                    additionalProperties: new OA\AdditionalProperties(type: 'string'),
+                    example: ['firstName' => 'This value should not be blank.']
+                )
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 429,
+        description: 'Запит уже обробляється (спрацював Idempotency Blocker)',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'error', type: 'string', example: 'Запит вже обробляється.')
+            ]
+        )
+    )]
     public function createUser(Request $request, MessageBusInterface $bus, ValidatorInterface $validator): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
@@ -37,7 +92,6 @@ class UserController extends AbstractController
         if (!$this->idempotencyBlocker->tryLock($mainPhone)) {
             return new JsonResponse(['error' => 'Запит вже обробляється.'], Response::HTTP_TOO_MANY_REQUESTS);
         }
-
 
         $phoneNumbers = array_unique($data['phoneNumbers'] ?? []);
         $ipAddress = $request->getClientIp();
@@ -70,6 +124,65 @@ class UserController extends AbstractController
     }
 
     #[Route('/api/users', name: 'get_all_users', methods: ['GET'])]
+    #[OA\Get(
+        path: '/api/users',
+        summary: 'Отримати список користувачів',
+        description: 'Повертає перелік усіх документів користувачів із бази даних MongoDB з можливістю сортування.'
+    )]
+    #[OA\Parameter(
+        name: 'sortBy',
+        in: 'query',
+        description: 'Поле, за яким здійснюється сортування',
+        required: false,
+        schema: new OA\Schema(
+            type: 'string',
+            enum: ['firstName', 'lastName', 'phoneNumbers', 'ipAddress', 'country'],
+            default: 'phoneNumbers'
+        )
+    )]
+    #[OA\Parameter(
+        name: 'direction',
+        in: 'query',
+        description: 'Напрямок сортування (asc — за зростанням, desc — за спаданням)',
+        required: false,
+        schema: new OA\Schema(type: 'string', enum: ['asc', 'desc'], default: 'desc')
+    )]
+    #[OA\Response(
+        response: 200,
+        description: 'Список користувачів успішно згенеровано',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(
+                    property: 'records',
+                    type: 'array',
+                    items: new OA\Items(
+                        properties: [
+                            new OA\Property(property: 'id', type: 'string', example: '64a7c1e3f8d2b30012345678'),
+                            new OA\Property(property: 'firstName', type: 'string', example: 'Олександр'),
+                            new OA\Property(property: 'lastName', type: 'string', example: 'Шестопал'),
+                            new OA\Property(property: 'ipAddress', type: 'string', example: '178.92.0.1'),
+                            new OA\Property(property: 'country', type: 'string', example: 'Ukraine'),
+                            new OA\Property(
+                                property: 'phoneNumbers',
+                                type: 'array',
+                                items: new OA\Items(type: 'string'),
+                                example: ['+380501234567']
+                            )
+                        ]
+                    )
+                )
+            ]
+        )
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'Передано некоректне поле для сортування',
+        content: new OA\JsonContent(
+            properties: [
+                new OA\Property(property: 'error', type: 'string', example: 'Недопустиме поле для сортування')
+            ]
+        )
+    )]
     public function listUsers(Request $request, DocumentManager $dm): JsonResponse
     {
         $sortBy = $request->query->get('sortBy', 'phoneNumbers');
