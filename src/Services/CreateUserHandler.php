@@ -30,20 +30,7 @@ class CreateUserHandler
                 return;
             }
 
-            $user = new User();
-            foreach ($message->phoneNumbers as $phoneNumber) {
-                $user->addPhone($phoneNumber);
-            }
-
-            $country = $this->ipLocateClient->getCountryByIp($message->ipAddress);
-
-            $user->setFirstName($message->firstName);
-            $user->setLastName($message->lastName);
-            $user->setIpAddress($message->ipAddress);
-            $user->setCountry($country);
-
-            $this->dm->persist($user);
-            $this->dm->flush();
+            $this->save($message);
 
         } catch (\Exception $exception) {
             if (str_contains($exception->getMessage(), 'E11000')) {
@@ -54,5 +41,24 @@ class CreateUserHandler
             $this->logger->error(sprintf('Помилка при створенні користувача: %s', $exception->getMessage()));
             throw $exception;
         }
+    }
+
+    private function save(UserDTO $message): void
+    {
+        $user = new User();
+
+        foreach ($message->phoneNumbers as $phoneNumber) {
+            $user->addPhone($phoneNumber);
+        }
+
+        $country = $this->ipLocateClient->getCountryByIp($message->ipAddress);
+
+        $user->setFirstName($message->firstName);
+        $user->setLastName($message->lastName);
+        $user->setIpAddress($message->ipAddress);
+        $user->setCountry($country);
+
+        $this->dm->persist($user);
+        $this->dm->flush();
     }
 }

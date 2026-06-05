@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Doctrine\ODM\MongoDB\DocumentManager;
+use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use OpenApi\Attributes as OA;
 
@@ -20,13 +21,14 @@ use OpenApi\Attributes as OA;
 class UserController extends AbstractController
 {
     public function __construct(
-        private IdempotencyBlocker $idempotencyBlocker,
-        private UserRequestValidator $requestValidator
+        private readonly IdempotencyBlocker $idempotencyBlocker,
+        private readonly UserRequestValidator $requestValidator,
+        private readonly SerializerInterface $serializer
     ) {}
 
-    #[Route('/api/user', name: 'add_user', methods: ['POST'])]
+    #[Route('/api/users', name: 'add_user', methods: ['POST'])]
     #[OA\Post(
-        path: '/api/user',
+        path: '/api/users',
         summary: 'Створити нового користувача',
         description: 'Валідує дані, перевіряє унікальність/ідемпотентність за першим номером телефону та передає задачу в чергу повідомлень.'
     )]
@@ -79,7 +81,7 @@ class UserController extends AbstractController
             ]
         )
     )]
-    public function createUser(Request $request, MessageBusInterface $bus, ValidatorInterface $validator): JsonResponse
+    public function create(Request $request, MessageBusInterface $bus, ValidatorInterface $validator): JsonResponse
     {
         $data = json_decode($request->getContent(), true) ?? [];
 
@@ -104,16 +106,6 @@ class UserController extends AbstractController
             $phoneNumbers,
             $ipAddress
         );
-
-        $errors = $validator->validate($message);
-
-        if (count($errors) > 0) {
-            $resultErrors = [];
-            foreach ($errors as $error) {
-                $resultErrors[$error->getPropertyPath()] = $error->getMessage();
-            }
-            return $this->json(['errors' => $resultErrors], 400);
-        }
 
         $bus->dispatch($message);
 
@@ -183,7 +175,7 @@ class UserController extends AbstractController
             ]
         )
     )]
-    public function listUsers(Request $request, DocumentManager $dm): JsonResponse
+    public function records(Request $request, DocumentManager $dm): JsonResponse
     {
         $sortBy = $request->query->get('sortBy', 'phoneNumbers');
         $direction = $request->query->get('direction', 'desc');
@@ -199,19 +191,8 @@ class UserController extends AbstractController
 
         $users = $dm->getRepository(User::class)->findBy([], [$sortBy => $direction]);
 
-        $responseRecords = [];
+        $jsonData = $this->serializer->serialize(['records' => $users], 'json');
 
-        foreach ($users as $user) {
-            $responseRecords[] = [
-                'id' => method_exists($user, 'getId') ? $user->getId() : null,
-                'firstName' => method_exists($user, 'getFirstName') ? $user->getFirstName() : null,
-                'lastName' => method_exists($user, 'getLastName') ? $user->getLastName() : null,
-                'ipAddress' => method_exists($user, 'getIpAddress') ? $user->getIpAddress() : null,
-                'country' => method_exists($user, 'getCountry') ? $user->getCountry() : null,
-                'phoneNumbers' => method_exists($user, 'getPhones') ? $user->getPhones() : (method_exists($user, 'getPhoneNumbers') ? $user->getPhoneNumbers() : []),
-            ];
-        }
-
-        return new JsonResponse(['records' => $responseRecords], 200);
+        return new JsonResponse($jsonData, 200, [], true);
     }
 }
