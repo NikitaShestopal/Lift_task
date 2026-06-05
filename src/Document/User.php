@@ -15,6 +15,7 @@ class User
     private string $lastName;
 
     #[MongoDB\Field(type: "collection", name: "phoneNumbers")]
+    #[MongoDB\UniqueIndex]
     private array $phoneNumbers = [];
 
     #[MongoDB\Field(type: "string", name: "ipAddress")]
