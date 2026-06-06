@@ -4,6 +4,108 @@ nelmio_api_doc:
             title: My App
             description: This is an awesome app!
             version: 1.0.0
-    areas: # to filter documented areas
+        paths:
+            /api/users:
+                post:
+                    tags:
+                        - 'Користувачі (Users)'
+                    summary: 'Створити нового користувача'
+                    description: 'Валідує дані, перевіряє унікальність/ідемпотентність за першим номером телефону та передає задачу в чергу повідомлень.'
+                    requestBody:
+                        required: true
+                        description: 'JSON-payload для створення користувача'
+                        content:
+                            application/json:
+                                schema:
+                                    type: object
+                                    properties:
+                                        firstName: { type: string, example: 'Олександр' }
+                                        lastName: { type: string, example: 'Шестопал' }
+                                        phoneNumbers:
+                                            type: array
+                                            items: { type: string }
+                                            example: ['+380501234567', '+380671234567']
+                                        ipAddress: { type: string, example: '178.92.0.1', nullable: true }
+                    responses:
+                        '202':
+                            description: 'Запит прийнято в обробку (відправлено в Messenger Bus)'
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            status: { type: string, example: 'Прийнято' }
+                        '400':
+                            description: 'Помилка валідації структури або DTO'
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            errors:
+                                                type: object
+                                                additionalProperties: { type: string }
+                                                example: { firstName: 'Це не повинно бути пустим!' }
+                        '429':
+                            description: 'Запит уже обробляється (спрацював Idempotency Blocker)'
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            error: { type: string, example: 'Запит вже обробляється.' }
+                get:
+                    tags:
+                        - 'Користувачі (Users)'
+                    summary: 'Отримати список користувачів'
+                    description: 'Повертає перелік усіх документів користувачів із бази даних MongoDB з можливістю сортування.'
+                    parameters:
+                        - name: sortBy
+                          in: query
+                          description: 'Поле, за яким здійснюється сортування'
+                          required: false
+                          schema:
+                              type: string
+                              enum: [firstName, lastName, phoneNumbers, ipAddress, country]
+                              default: phoneNumbers
+                        - name: direction
+                          in: query
+                          description: 'Напрямок сортування (asc — за зростанням, desc — за спаданням)'
+                          required: false
+                          schema:
+                              type: string
+                              enum: [asc, desc]
+                              default: desc
+                    responses:
+                        '200':
+                            description: 'Список користувачів успішно згенеровано'
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            records:
+                                                type: array
+                                                items:
+                                                    type: object
+                                                    properties:
+                                                        id: { type: string, example: '64a7c1e3f8d2b30012345678' }
+                                                        firstName: { type: string, example: 'Микита' }
+                                                        lastName: { type: string, example: 'Шестопал' }
+                                                        ipAddress: { type: string, example: '178.92.0.1' }
+                                                        country: { type: string, example: 'Ukraine' }
+                                                        phoneNumbers:
+                                                            type: array
+                                                            items: { type: string }
+                                                            example: ['+380501234567']
+                        '400':
+                            description: 'Передано некоректне поле для сортування'
+                            content:
+                                application/json:
+                                    schema:
+                                        type: object
+                                        properties:
+                                            error: { type: string, example: 'Недопустиме поле для сортування' }
+    areas:
         path_patterns:
-            - ^/api(?!/doc$) # Accepts routes under /api except /api/doc
+            - ^/api(?!/doc$)

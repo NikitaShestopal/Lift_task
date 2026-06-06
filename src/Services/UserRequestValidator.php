@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Services;
 
 use Symfony\Component\Validator\Constraints as Assert;
@@ -13,9 +11,6 @@ class UserRequestValidator
         private ValidatorInterface $validator
     ) {}
 
-    /**
-     * Валідує вхідні дані запиту.
-     */
     public function validate(array $data): array
     {
         // Використовуємо іменовані аргументи замість конфігураційних масивів

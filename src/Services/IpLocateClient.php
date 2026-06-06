@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 namespace App\Services;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -32,7 +30,7 @@ class IpLocateClient
             }
 
             $data = $response->toArray();
-            return $data['country'] ?? 'Unknown Country';
+            return $data['country'] ?? 'Невідома країна';
 
         } catch (\Exception $e) {
             $this->logger->error(sprintf('Помилка iplocate.io для IP %s: %s', $ip, $e->getMessage()));

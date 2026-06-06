@@ -1,0 +1,68 @@
+# User Management API (Symfony + MongoDB)
+
+Бекенд-додаток на базі **Symfony 7**, розроблений для ефективного управління користувачами з використанням **MongoDB (Doctrine ODM)**. Проєкт реалізує асинхронну обробку даних через черги повідомлень, має вбудований механізм ідемпотентності для захисту від дублювання запитів та повністю покритий функціональними тестами.
+
+---
+
+## Технологічний стек
+
+*   **Framework:** Symfony 7 (PHP 8.4)
+*   **Database:** MongoDB via Doctrine ODM
+*   **Queue Manager:** Symfony Messenger Bus
+*   **Documentation:** OpenAPI / Swagger (via NelmioApiDocBundle)
+*   **Testing:** PHPUnit 13
+*   **Environment:** Docker & Docker Compose
+
+---
+
+## Ключові фічі та архітектура
+
+1. **Асинхронність на POST запитах:** При створенні користувача дані валідуються та миттєво відправляються в чергу повідомлень (`MessageBusInterface`). Клієнт миттєво отримує відповідь `202 Accepted`, що розвантажує HTTP-потік.
+2. **Захист від дублів (Idempotency Blocker):** Система блокує повторні запити за першим номером телефону за допомогою унікальних локів. Якщо запит уже обробляється, повертається статус `429 Too Many Requests`.
+3. **Гнучке сортування (GET запити):** Можливість динамічного сортування користувачів за білим списком полів (`firstName`, `lastName`, `phoneNumbers`, `ipAddress`, `country`) у напрямках `asc` та `desc`.
+4. **Чиста документація:** Контролери очищені від OpenAPI-шуму — вся Swagger-документація винесена в ізольовану YAML-конфігурацію.
+
+---
+
+## Швидкий старт (Docker)
+
+Переконайтеся, що у вас встановлені **Docker** та **Docker Compose**.
+
+### 1. Клонування та запуск контейнерів
+Підніміть Docker-оточення у фоновому режимі:
+```bash
+docker compose up -d
+2. Встановлення залежностей Composer
+Встановіть усі необхідні PHP-пакети всередині контейнера:
+
+Bash
+docker compose exec php composer install
+API Документація (Swagger UI)
+Після запуску контейнерів інтерактивна документація API доступна за адресою:
+http://localhost/api/doc (якщо ваш веб-сервер слухає 80-й порт).
+
+Доступні Endpoints:
+POST /api/users — Створення нового користувача (Валідація ➡️ Лок ідемпотентності ➡️ Черга).
+
+GET /api/users — Отримання списку користувачів із MongoDB з підтримкою сортування.
+
+Тестування
+Проєкт покритий автоматичними функціональними тестами за допомогою WebTestCase. Тести повністю ізольовані від реальної бази даних за допомогою моків (Mocking), тому виконуються миттєво.
+
+Запуск тестів всередині Docker-контейнера:
+
+Bash
+docker compose exec php vendor/bin/phpunit tests/Controller/UserControllerTest.php
+Структура проєкту
+Plaintext
+├── config/                  # Конфігурація Symfony
+│   └── packages/
+│       └── nelmio_api_doc.yaml # API-документація (YAML)
+├── src/
+│   ├── Controller/          # Чисті HTTP-контролери
+│   ├── Document/            # MongoDB Документи (User)
+│   ├── DTO/                 # Data Transfer Objects (UserDTO)
+│   └── Services/            # Бізнес-логіка (Валідація, Ідемпотентність)
+├── tests/                   # Автотести (PHPUnit)
+├── docker-compose.yml       # Конфігурація Docker-сервісів
+└── README.md                # Цей файл
